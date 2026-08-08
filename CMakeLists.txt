@@ -12,3 +12,7 @@ add_library(winmm SHARED "src/winmm.c")
 
 # sendacopia.dll
 add_library(${PROJECT_NAME} SHARED "src/sendacopia.c")
+
+add_subdirectory(minhook)
+target_include_directories(${PROJECT_NAME} PRIVATE minhook/include)
+target_link_libraries(${PROJECT_NAME} minhook)
