@@ -41,7 +41,7 @@ SendacopiaGUIState* SendacopiaGUIStateNew() {
 	state->window = MwVaCreateWidget(MwWindowClass, NULL, NULL, MwDEFAULT, MwDEFAULT, 320, 240, MwNtitle, "Endacopia Save Manager\n", NULL);
 	state->mainBox = MwVaCreateWidget(MwBoxClass, NULL, state->window, 0, 0, 320, 240, MwNorientation, MwVERTICAL, NULL);
 
-	state->fileChooserBox = MwVaCreateWidget(MwBoxClass, NULL, state->mainBox, 0, 0, 320, 240, MwNorientation, MwVERTICAL, NULL);
+	state->fileChooserBox = MwVaCreateWidget(MwBoxClass, NULL, state->mainBox, 0, 0, 320, 240, MwNorientation, MwVERTICAL, MwNratio, 6, NULL);
 	state->fileChooseListBox = MwCreateWidget(MwListBoxClass, NULL, state->fileChooserBox, 0, 0, 320, 240);
 
 	SendacopiaGUIStatePopulateList(state);

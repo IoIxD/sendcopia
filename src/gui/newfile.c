@@ -29,7 +29,7 @@ void SendacopiaGUIState_NewFileHandler(MwWidget handle, void* user, void* call) 
 	SendacopiaGUIState * state = (SendacopiaGUIState*)user;
 	WaitForSingleObject(state->mutex, INFINITE);
 	state->filenameChooserCtx.window = MwVaCreateWidget(MwWindowClass, NULL, NULL, MwDEFAULT, MwDEFAULT, 320, 100, MwNtitle, "New filename", NULL);
-	state->filenameChooserCtx.vbox = MwVaCreateWidget(MwBoxClass, NULL, state->filenameChooserCtx.window, 0, 0, 320, 100, MwNorientation, MwVERTICAL, NULL);
+	state->filenameChooserCtx.vbox = MwVaCreateWidget(MwBoxClass, NULL, state->filenameChooserCtx.window, 0, 0, 320, 100, MwNorientation, MwVERTICAL, MwNratio, 6, NULL);
 	state->filenameChooserCtx.entry = MwVaCreateWidget(MwEntryClass, NULL, state->filenameChooserCtx.vbox, 0, 0, 1, 1, NULL);
 	state->filenameChooserCtx.hbox = MwVaCreateWidget(MwBoxClass, NULL, state->filenameChooserCtx.vbox, 0,0,320,100, MwNorientation, MwVERTICAL, NULL);
 	state->filenameChooserCtx.confirm = MwVaCreateWidget(MwButtonClass, NULL, state->filenameChooserCtx.hbox, 0, 0, 1, 1, MwNtext, "Confirm", NULL);
