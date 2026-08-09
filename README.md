@@ -2,7 +2,7 @@
 
 Mod for Endacopia that adds a save game manager to the game's launch. It also allows you to launch without being able to save at all for speedrunning purposes.
 
-<img width="351" height="296" alt="image" src="https://github.com/user-attachments/assets/b3012122-dadf-4854-a5cc-dee88cfb966d" />
+<img width="351" height="296" alt="image" src="https://github.com/user-attachments/assets/25219e11-65a2-4c0c-80b4-c39986e16f5c" />
 
 # Installation
 Download the zip file and unzip the three DLLs given to you into Endacopia's installation directory
