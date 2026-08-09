@@ -46,28 +46,31 @@ int FUN_00516c00_Hook(void) {
     }
 }
 
-wchar_t modifiedSavePath[MAX_PATH];
+wchar_t modifiedSavePathWide[MAX_PATH];
 
 /* 
     Function for checking for paths and such.
-    We can hijack  
+    We can hijack the save directory at this point
    */
 void* __fastcall FUN_00560800_Hook(void* param_1, LPCWSTR param_2) {
     char* name = SendacopiaGetChoice();
     PWSTR path = NULL;
+    HRESULT r = SHGetKnownFolderPath(&FOLDERID_SavedGames, KF_FLAG_CREATE, NULL, &path);
 
-    SE_LOG("FUN_00560800, name: %s\n", name);
-    if (strcmp(name, SENDACOPIA_DEFAULT_SAVE_TEXT) != 0 && strcmp(name, SENDACOPIA_NO_SAVE_TEXT) != 0) {
-        wsprintf(modifiedSavePath, "%ws\\Sendacopia\\%s", path, SendacopiaGetChoice());
-        HRESULT r = SHGetKnownFolderPath(&FOLDERID_SavedGames, KF_FLAG_CREATE, NULL, &path);
-        if (r == S_OK)
-        {
-            if (wcscmp(param_2, path) == 0) {
-                SE_LOG("FUN_00560800, save path %ws\n", modifiedSavePath);
-                param_2 = modifiedSavePath;
-            }
-        }
+    SE_LOG("FUN_00560800, name: %s, param_2: %ws, path: %ws, wcscmp: %d\n", name, param_2, path, wcscmp(param_2, path));
+    if (wcscmp(param_2, path) == 0) {
+        SE_LOG("wide modifiedSavePath %ws\n", param_2);
+        MultiByteToWideChar(CP_UTF8, 0, SendacopiaGetChoice(), -1, modifiedSavePathWide, MAX_PATH);
+        param_2 = modifiedSavePathWide;
     }
+    //if (strcmp(name, SENDACOPIA_DEFAULT_SAVE_TEXT) == 0 || strcmp(name, SENDACOPIA_NO_SAVE_TEXT) == 0) {
+    //} else {
+
+    //    if (wcscmp(param_2, path) == 0) {
+    //        SE_LOG("FUN_00560800, save path %ws\n", modifiedSavePath);
+    //        param_2 = modifiedSavePath;
+    //    }
+    //}
 
     return fpFUN_00560800(param_1, param_2);
 };
