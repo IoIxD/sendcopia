@@ -20,37 +20,17 @@ BOOL(WINAPI* fpSHGetSpecialFolderPathW)(
 
 void* (__fastcall *fpFUN_00560800)(void* param_1, LPCWSTR param_2) = NULL;
 
-// Detour function
-BOOL WINAPI SHGetSpecialFolderPathW_Hook(
-    HWND    hwnd,
-    LPWSTR  pszPath,
-    int     csidl,
-    BOOL    fCreate)
-{
-    SE_LOG("[HOOK] SHGetSpecialFolderPathW %s\n", pszPath);
-    return fpSHGetSpecialFolderPathW(hwnd, pszPath, csidl, fCreate);
-}
 
-BOOL CALLED_00516c00_ONCE = FALSE;
-
-
-/* 
-    Function for checking some aspect of the same folder.
-    If we return NULL, the game won't try to save anywhere.
-*/
-int FUN_00516c00_Hook(void) {
-    if (strcmp(SendacopiaGetChoice(), SENDACOPIA_NO_SAVE_TEXT) == 0) {
-        return NULL;
-    } else {
-        return 1;
-    }
-}
 
 wchar_t modifiedSavePathWide[MAX_PATH];
 
 /* 
     Function for checking for paths and such.
     We can hijack the save directory at this point
+    REMINDER TO SELF: I found this by 
+        - searching for uses of SHGetSpecialFolderPathW in Ghidra
+        - finding a function with something like "FUN_0053ff60("My Saved Games",0xffffffff);" in it
+        - hooking the function that gets called Under SHGetSpecialFolderPathW
    */
 void* __fastcall FUN_00560800_Hook(void* param_1, LPCWSTR param_2) {
     char* name = SendacopiaGetChoice();
@@ -63,20 +43,35 @@ void* __fastcall FUN_00560800_Hook(void* param_1, LPCWSTR param_2) {
         MultiByteToWideChar(CP_UTF8, 0, SendacopiaGetChoice(), -1, modifiedSavePathWide, MAX_PATH);
         param_2 = modifiedSavePathWide;
     }
-    //if (strcmp(name, SENDACOPIA_DEFAULT_SAVE_TEXT) == 0 || strcmp(name, SENDACOPIA_NO_SAVE_TEXT) == 0) {
-    //} else {
-
-    //    if (wcscmp(param_2, path) == 0) {
-    //        SE_LOG("FUN_00560800, save path %ws\n", modifiedSavePath);
-    //        param_2 = modifiedSavePath;
-    //    }
-    //}
 
     return fpFUN_00560800(param_1, param_2);
 };
 
+/*
+    Function where the game tries to verify if it can save to a directory.
+    We just return true.
+    REMINDER TO SELF: 
+    I found this by searching for a string like "Unable to write in the savegame directory" and then finding which function call results in that.
+*/
 char* FUN_00500620_Hook(void) {
     return TRUE;
+}
+
+/*
+    Function for checking some aspect of the same folder.
+    If we return NULL, the game won't try to save anywhere.
+    REMINDER TO SELF: I found this by
+    - searching for uses of SHGetSpecialFolderPathW in Ghidra
+    - finding a function with something like "FUN_0053ff60("My Saved Games",0xffffffff);" in it
+    - hijacking the function that gets called above "if ((char)iVar2 == '\0')"
+*/
+int FUN_00516c00_Hook(void) {
+    if (strcmp(SendacopiaGetChoice(), SENDACOPIA_NO_SAVE_TEXT) == 0) {
+        return NULL;
+    }
+    else {
+        return 1;
+    }
 }
 
 void InstallHook() {
@@ -96,13 +91,6 @@ void InstallHook() {
         SE_LOG("GetProcAddress failed!\n");
         return;
     }
-
-    //if (MH_CreateHook(pTarget,
-    //    &SHGetSpecialFolderPathW_Hook,
-    //    (LPVOID*)(&fpSHGetSpecialFolderPathW)) != MH_OK) {
-    //    SE_LOG("MH_CreateHook failed!\n");
-    //    return;
-    //}
 
     if (MH_CreateHook((void*)0x00516c00,
         &FUN_00516c00_Hook,

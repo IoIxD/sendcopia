@@ -13,6 +13,8 @@ static void confirm(MwWidget handle, void* user, void* call) {
 	WaitForSingleObject(state->mutex, INFINITE);
 	SendacopiaGUIStateNewFile(state, MwGetText(state->filenameChooserCtx.entry, MwNtext));
 
+	SendacopiaGUIStatePopulateList(state);
+
 	destroy_picker(state);
 	ReleaseMutex(state->mutex);
 }
