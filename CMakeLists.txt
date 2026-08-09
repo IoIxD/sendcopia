@@ -8,11 +8,24 @@ if (POLICY CMP0141)
 endif()
 
 # winmm.dll
-add_library(winmm SHARED "src/winmm.c")
+add_library(winmm SHARED "src/dll/winmm.c")
 
 # sendacopia.dll
-add_library(${PROJECT_NAME} SHARED "src/sendacopia.c")
+add_library(${PROJECT_NAME} SHARED 
+	"src/dll/sendacopia.c"
+	"src/gui/gui.c"
+	"src/gui/newfile.c"
+	"src/sendacopia.c"
+)
 
-add_subdirectory(minhook)
-target_include_directories(${PROJECT_NAME} PRIVATE minhook/include)
-target_link_libraries(${PROJECT_NAME} minhook)
+add_subdirectory(submodules/minhook)
+target_include_directories(${PROJECT_NAME} PRIVATE submodules/minhook/include)
+
+#set(MW_BUILD_STATIC ON)
+#set(MW_TRY_VULKAN OFF)
+add_subdirectory(submodules/milsko)
+target_include_directories(${PROJECT_NAME} PRIVATE submodules/milsko/include)
+message(STATUS ${CMAKE_CURRENT_BINARY_DIR}/submodules/milsko)
+target_link_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/submodules/milsko)
+
+target_link_libraries(${PROJECT_NAME} minhook Mw dbghelp)

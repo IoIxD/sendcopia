@@ -62,7 +62,19 @@ BOOL WINAPI DllMain(
             return FALSE;
         }
     
-        LoadLibrary("sendacopia.dll");
+        HANDLE sendacopia = LoadLibrary("sendacopia.dll");
+        if (sendacopia == NULL) {
+            /* (duplication of the function in sendacopia.h) */
+            DWORD errorMessageID = GetLastError();
+            char fullMessageBuffer[2048];
+            LPSTR messageBuffer = NULL;
+            size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+            snprintf(fullMessageBuffer, sizeof(fullMessageBuffer), "Failed to load sendacopia.dll!\n%s(Do you also have Mw.dll in the directory?)\n", messageBuffer);
+            MessageBox(NULL, fullMessageBuffer, "OOPS", MB_OK);
+            LocalFree(messageBuffer);
+            return FALSE;
+        }
     }
 
 

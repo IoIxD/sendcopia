@@ -1,3 +1,6 @@
 [submodule "minhook"]
-	path = minhook
+	path = submodules/minhook
 	url = https://github.com/tsudakageyu/minhook
+[submodule "submodules/milsko"]
+	path = submodules/milsko
+	url = https://github.com/pyrite-dev/milsko
