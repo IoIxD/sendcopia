@@ -14,8 +14,16 @@ static void confirm(MwWidget handle, void* user, void* call) {
 	int idx = MwGetInteger(state->fileChooseListBox, MwNvalue);
 	char* text = MwListBoxGet(state->fileChooseListBox, idx);
 	if (text) {
-		SE_LOG("Opening %s\n", text);
-		SendacopiaSetChoice(text);
+		if (strcmp(text, SENDACOPIA_DEFAULT_SAVE_TEXT) == 0) {
+			SendacopiaSetChoice(SENDACOPIA_DEFAULT_SAVE);
+		} else if (strcmp(text, SENDACOPIA_NO_SAVE_TEXT) == 0) {
+			SendacopiaSetChoice(SENDACOPIA_NO_SAVE);
+		}
+		else {
+			int index = SendacopiaGetChoiceFromINI(text);
+			SE_LOG("Opening %s (index %d)\n", text, index);
+			SendacopiaSetChoice(index);
+		}
 	}
 	running = MwFALSE;
 }
@@ -23,6 +31,7 @@ static void confirm(MwWidget handle, void* user, void* call) {
 static void close(MwWidget handle, void* user, void* call) {
 	dohardclose = MwTRUE;
 }
+
 
 SendacopiaGUIState* SendacopiaGUIStateNew() {
 	MwLibraryInit();
@@ -57,7 +66,7 @@ SendacopiaGUIState* SendacopiaGUIStateNew() {
 
 	state->filenameChooserCtx.window = NULL;
 
-	SendacopiaSetChoice(SENDACOPIA_DEFAULT_SAVE_TEXT);
+	SendacopiaSetChoice(SENDACOPIA_DEFAULT_SAVE);
 	return state;
 };
 MwBool SendacopiaGUIStateLoop(SendacopiaGUIState* state) {
@@ -85,64 +94,39 @@ void SendacopiaGUIStateFree(SendacopiaGUIState * state) {
 
 	free(state);
 };
-void SendacopiaGUIStatePopulateList(SendacopiaGUIState* state) {
-	MwListBoxReset(state->fileChooseListBox);
 
+static int replacechar(char* str, char orig, char rep) {
+	char* ix = str;
+	int n = 0;
+	while ((ix = strchr(ix, orig)) != NULL) {
+		*ix++ = rep;
+		n++;
+	}
+	return n;
+}
+void SendacopiaGUIStatePopulateList(SendacopiaGUIState* state) {
+	char curdir[MAX_PATH] = { 0 };
+	char saveloc[MAX_PATH] = { 0 };
+	char buffer[8096] = { 0 };
+	GetModuleFileName(NULL, curdir, MAX_PATH);
+	snprintf(saveloc, MAX_PATH, "%s\\..\\sendacopia_saves.ini", curdir);
+	SE_LOG("opening %s\n", saveloc);
+
+	GetPrivateProfileSectionA("Saves", buffer, sizeof(buffer), saveloc);
+
+	MwListBoxReset(state->fileChooseListBox);
 	MwListBoxSet(state->fileChooseListBox, -1, -1, SENDACOPIA_DEFAULT_SAVE_TEXT);
 	MwListBoxSet(state->fileChooseListBox, -1, -1, SENDACOPIA_NO_SAVE_TEXT);
 
-	PWSTR path = NULL;
-	char fullpath[MAX_PATH];
-	wchar_t wpath[MAX_PATH * 4];
-	HRESULT r = SHGetKnownFolderPath(&FOLDERID_SavedGames, KF_FLAG_CREATE, NULL, &path);
-	if (r == S_OK)
-	{
-		snprintf(fullpath, sizeof(fullpath), "%ws\\Sendacopia\\*", path);
-		MultiByteToWideChar(CP_UTF8, 0, fullpath, -1, wpath, sizeof(wpath));
-		CreateDirectoryW(wpath, 0);
-		SE_LOG("Using %ws for extra save games\n", wpath);
-
-		WIN32_FIND_DATAW findData;
-		HANDLE hFind = FindFirstFileW(wpath, &findData);
-
-		if (hFind == INVALID_HANDLE_VALUE) {
-			SE_LOG("Failed to open %ws; %d\n", wpath, GetLastError());
-			return;
-		}
-
-		do {
-			if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0) {
-				continue;
-			}
-
-			if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-				char folderName[MAX_PATH];
-				WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, folderName, sizeof(folderName), 0, 0);
-				SE_LOG("found %s\n", folderName);
-				MwListBoxSet(state->fileChooseListBox, -1, -1, folderName);
-			}
-		} while (FindNextFileW(hFind, &findData));
-
-		CoTaskMemFree(path);
-	}
-	else {
-		SE_LOG("SHGetKnownFolderPath failed! %d\n", r);
-	}
-
-	
-};
-
-void SendacopiaGUIStateNewFile(SendacopiaGUIState* state, const char* filename) {
-	PWSTR path = NULL;
-	char fullpath[MAX_PATH];
-	char err[MAX_PATH];
-	HRESULT r = SHGetKnownFolderPath(&FOLDERID_SavedGames, KF_FLAG_CREATE, NULL, &path);
-	if (r == S_OK)
-	{
-		snprintf(fullpath, sizeof(fullpath), "%ws\\Sendacopia\\%s", path, filename);
-		if (!CreateDirectory(fullpath, 0)) {
-			snprintf(err, sizeof(err), "Failed to create/open %s", fullpath);
-			SendacopiaShowWindowsError(err);
-		}
+	char* p = buffer;
+	SE_LOG("now iterating\n");
+	while (*p) {
+		char key[2048] = { 0 };
+		memset(key, 0, 2048);
+		snprintf(key, 2047, "%s", p);
+		replacechar(key, '=', '\0');
+		MwListBoxSet(state->fileChooseListBox, -1, -1, key);
+		p += strlen(p) + 1;
 	}
 };
+

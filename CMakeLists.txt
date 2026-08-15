@@ -28,4 +28,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE submodules/milsko/include)
 message(STATUS ${CMAKE_CURRENT_BINARY_DIR}/submodules/milsko)
 target_link_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/submodules/milsko)
 
-target_link_libraries(${PROJECT_NAME} minhook Mw dbghelp)
+add_subdirectory(submodules/json-c)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/submodules/json-c/)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/submodules/json-c/)
+
+target_link_libraries(${PROJECT_NAME} minhook Mw dbghelp json-c)
+
+if(SUPPORT_OLDER_SAVES)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE SUPPORT_OLDER_SAVES)
+endif()
