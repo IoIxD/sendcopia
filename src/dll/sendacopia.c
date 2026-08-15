@@ -38,6 +38,17 @@ int Win32SavedGamesDirectoryIsValid_Hook(void) {
     }
 }
 
+/*
+    Function where the game tries to verify if it can save to a directory.
+    We just return true.
+    REMINDER TO SELF:
+    I found this by searching for a string like "Unable to write in the savegame directory" and then finding which function call results in that.
+*/
+BOOL FUN_00500620_Hook(void) {
+    return TRUE;
+}
+
+
 // FUN_00441bc0
 BOOL __fastcall TryRestoreSave_NoPath_Hook(int slot) {
     SE_LOG("TryRestoreSave_NoPath (%d)\n", slot);
@@ -89,24 +100,11 @@ void RestoreGame_Hook(int slot) {
     }
 }
 
-// FUN_00509140
-//void* __fastcall get_save_game_filename_hook(int slot) {
-//    SE_LOG("get_save_game_filename (%d)\n", slot);
-//    if (slot == SENDACOPIA_DEFAULT_SAVE) {
-//        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
-//        return fp_get_save_game_filename(SendacopiaGetChoice());
-//    }
-//    else {
-//        return fp_get_save_game_filename(slot);
-//    }
-//}
-
 void Entry_Hook(void) {
     SE_LOG("Entry_Hook!\n");
     SendacopiaGUIState* state = SendacopiaGUIStateNew();
     MwBool cont = SendacopiaGUIStateLoop(state);
     SendacopiaGUIStateFree(state);
-
 
     if (cont == MwFALSE) {
         fpMain();
@@ -123,56 +121,27 @@ void InstallHook() {
         return;
     }
 
-    if (MH_CreateHook((void*)0x00516c00,
-        &Win32SavedGamesDirectoryIsValid_Hook,
-        NULL) != MH_OK) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
-    }
-
-    if(MH_CreateHook((void*)0x0062B3C5,
-        &Entry_Hook,
-        &fpMain)) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
-    }
-
-    if (MH_CreateHook((void*)0x00440d70,
-        &SaveGame_Hook,
-        &fpSaveGame)) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
-    }
-
-    if (MH_CreateHook((void*)0x0046a410,
-        &RestoreGame_Hook,
-        &fpRestoreGame)) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
-    }
-
-    //if (MH_CreateHook((void*)0x00509140,
-    //    &get_save_game_filename_hook,
-    //    &fp_get_save_game_filename
-    //)) {
-    //    SE_LOG("MH_CreateHook failed!\n");
-    //    return;
-    //}
-
-    if (MH_CreateHook((void*)0x00441c40,
-        &TryRestoreSave_Hook,
-        &fpTryRestoreSave
-    )) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
-    }
-
-    if (MH_CreateHook((void*)0x00441bc0,
-        &TryRestoreSave_NoPath_Hook,
-        &fpTryRestoreSave_NoPath
-    )) {
-        SE_LOG("MH_CreateHook failed!\n");
-        return;
+    struct {
+        LPVOID target;
+        LPVOID detour;
+        LPVOID original;
+    } funcs[] = {
+        {(void*)0x00516c00, &Win32SavedGamesDirectoryIsValid_Hook, NULL},
+        {(void*)0x0062B3C5, &Entry_Hook, &fpMain},
+        {(void*)0x00440d70, &SaveGame_Hook, &fpSaveGame},
+        {(void*)0x0046a410, &RestoreGame_Hook, &fpRestoreGame},
+        {(void*)0x00441c40, &TryRestoreSave_Hook, &fpTryRestoreSave},
+        {(void*)0x00441bc0, &TryRestoreSave_NoPath_Hook, &fpTryRestoreSave_NoPath},
+        {(void*)0x00500620, FUN_00500620_Hook, NULL},
+    };
+    for (int i = 0; i < sizeof(funcs) / sizeof(*funcs); i++) {
+        SE_LOG("MH_CreateHook for function entry %d...", i);
+        if (MH_CreateHook(funcs[i].target, funcs[i].detour, funcs[i].original)) {
+            OutputDebugString("FAILED!\n");
+            return;
+        } else {
+            OutputDebugString("SUCCESS!\n");
+        }
     }
 
     if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {

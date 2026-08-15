@@ -1,5 +1,4 @@
 #include "sendacopia.h"
-#include "json.h"
 
 static int CHOICE;
 
