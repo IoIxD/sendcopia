@@ -11,7 +11,7 @@ static void destroy_picker(SendacopiaGUIState* state) {
 static void confirm(MwWidget handle, void* user, void* call) {
 	SendacopiaGUIState* state = (SendacopiaGUIState*)user;
 	WaitForSingleObject(state->mutex, INFINITE);
-	SendacopiaGUIStateNewFile(state, MwGetText(state->filenameChooserCtx.entry, MwNtext));
+	SendacopiaNewFile(MwGetText(state->filenameChooserCtx.entry, MwNtext));
 
 	SendacopiaGUIStatePopulateList(state);
 

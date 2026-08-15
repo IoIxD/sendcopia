@@ -49,6 +49,7 @@ BOOL WINAPI DllMain(
     LPVOID lpvReserved)  // reserved
 {
     if (fdwReason == DLL_PROCESS_ATTACH) {
+        OutputDebugString("WINMM INJECTION SUCCESS\n");
         char winmmPath[MAX_PATH] = { 0 };
         GetSystemDirectory(winmmPath, MAX_PATH);
         strcat_s(winmmPath, MAX_PATH, "\\winmm.dll");

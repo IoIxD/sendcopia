@@ -4,3 +4,6 @@
 [submodule "submodules/milsko"]
 	path = submodules/milsko
 	url = https://github.com/pyrite-dev/milsko
+[submodule "submodules/json-c"]
+	path = submodules/json-c
+	url = https://github.com/json-c/json-c

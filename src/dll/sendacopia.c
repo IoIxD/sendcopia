@@ -11,66 +11,109 @@
 
 static BOOL HasDoneInitialization = FALSE;
 
-BOOL(WINAPI* fpSHGetSpecialFolderPathW)(
-    HWND    hwnd,
-    LPWSTR  pszPath,
-    int     csidl,
-    BOOL    fCreate
-) = NULL;
-
 void* (__fastcall *fpFUN_00560800)(void* param_1, LPCWSTR param_2) = NULL;
 
-
-
-wchar_t modifiedSavePathWide[MAX_PATH];
-
-/* 
-    Function for checking for paths and such.
-    We can hijack the save directory at this point
-    REMINDER TO SELF: I found this by 
-        - searching for uses of SHGetSpecialFolderPathW in Ghidra
-        - finding a function with something like "FUN_0053ff60("My Saved Games",0xffffffff);" in it
-        - hooking the function that gets called Under SHGetSpecialFolderPathW
-   */
-void* __fastcall FUN_00560800_Hook(void* param_1, LPCWSTR param_2) {
-    char* name = SendacopiaGetChoice();
-    PWSTR path = NULL;
-    HRESULT r = SHGetKnownFolderPath(&FOLDERID_SavedGames, KF_FLAG_CREATE, NULL, &path);
-
-    SE_LOG("FUN_00560800, name: %s, param_2: %ws, path: %ws, wcscmp: %d\n", name, param_2, path, wcscmp(param_2, path));
-    if (wcscmp(param_2, path) == 0) {
-        SE_LOG("wide modifiedSavePath %ws\n", param_2);
-        MultiByteToWideChar(CP_UTF8, 0, SendacopiaGetChoice(), -1, modifiedSavePathWide, MAX_PATH);
-        param_2 = modifiedSavePathWide;
-    }
-
-    return fpFUN_00560800(param_1, param_2);
-};
+void (*fpSaveGame)(int slot, const char* descript) = NULL;
+void (*fpRestoreGame)(int slot) = NULL;
+//void *(__fastcall *fp_get_save_game_filename)(int slot) = NULL;
+BOOL(__fastcall* fpTryRestoreSave)(void* path, int slot) = NULL;
+BOOL (__fastcall *fpTryRestoreSave_NoPath)(int slot) = NULL;
+void (*fpMain)(void);
 
 /*
-    Function where the game tries to verify if it can save to a directory.
-    We just return true.
-    REMINDER TO SELF: 
-    I found this by searching for a string like "Unable to write in the savegame directory" and then finding which function call results in that.
-*/
-char* FUN_00500620_Hook(void) {
-    return TRUE;
-}
+    Function for checking whether the saved games directory is valid.
+    Naturally, if we return false, the game won't try to save anywhere.
 
-/*
-    Function for checking some aspect of the same folder.
-    If we return NULL, the game won't try to save anywhere.
     REMINDER TO SELF: I found this by
     - searching for uses of SHGetSpecialFolderPathW in Ghidra
     - finding a function with something like "FUN_0053ff60("My Saved Games",0xffffffff);" in it
     - hijacking the function that gets called above "if ((char)iVar2 == '\0')"
 */
-int FUN_00516c00_Hook(void) {
-    if (strcmp(SendacopiaGetChoice(), SENDACOPIA_NO_SAVE_TEXT) == 0) {
-        return NULL;
+int Win32SavedGamesDirectoryIsValid_Hook(void) {
+    if (SendacopiaGetChoice() == SENDACOPIA_NO_SAVE) {
+        return 0;
     }
     else {
         return 1;
+    }
+}
+
+// FUN_00441bc0
+BOOL __fastcall TryRestoreSave_NoPath_Hook(int slot) {
+    SE_LOG("TryRestoreSave_NoPath (%d)\n", slot);
+    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+        return fpTryRestoreSave_NoPath(SendacopiaGetChoice());
+    }
+    else {
+        return fpTryRestoreSave_NoPath(slot);
+    }
+}
+
+
+// FUN_00441c40
+BOOL __fastcall TryRestoreSave_Hook(void* path, int slot) {
+    SE_LOG("TryRestoreSave (%d)\n", slot);
+    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+        return fpTryRestoreSave(path, SendacopiaGetChoice());
+    }
+    else {
+        return fpTryRestoreSave(path, slot);
+    }
+}
+
+// FUN_00440d70
+void SaveGame_Hook(int slot, const char * descript) {
+    SE_LOG("SaveGame (%d %s)\n", slot, descript);
+    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+        fpSaveGame(SendacopiaGetChoice(), descript);
+    }
+    else {
+        fpSaveGame(slot, descript);
+    }
+}
+
+
+
+// FUN_0046a410
+void RestoreGame_Hook(int slot) {
+    SE_LOG("RestoreGameSlot (%d)\n", slot);
+    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+        fpRestoreGame(SendacopiaGetChoice());
+    }
+    else {
+        fpRestoreGame(slot);
+    }
+}
+
+// FUN_00509140
+//void* __fastcall get_save_game_filename_hook(int slot) {
+//    SE_LOG("get_save_game_filename (%d)\n", slot);
+//    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+//        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+//        return fp_get_save_game_filename(SendacopiaGetChoice());
+//    }
+//    else {
+//        return fp_get_save_game_filename(slot);
+//    }
+//}
+
+void Entry_Hook(void) {
+    SE_LOG("Entry_Hook!\n");
+    SendacopiaGUIState* state = SendacopiaGUIStateNew();
+    MwBool cont = SendacopiaGUIStateLoop(state);
+    SendacopiaGUIStateFree(state);
+
+
+    if (cont == MwFALSE) {
+        fpMain();
+        SE_LOG("Continuing!\n");
+    }
+    else {
+        SE_LOG("Not Continuing!\n");
     }
 }
 
@@ -80,37 +123,57 @@ void InstallHook() {
         return;
     }
 
-    HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
-    if (!hShell32) {
-        SE_LOG("GetModuleHandleW failed!\n");
-        return;
-    }
-
-    LPVOID pTarget = (LPVOID)GetProcAddress(hShell32, "SHGetSpecialFolderPathW");
-    if (!pTarget) {
-        SE_LOG("GetProcAddress failed!\n");
-        return;
-    }
-
     if (MH_CreateHook((void*)0x00516c00,
-        &FUN_00516c00_Hook,
+        &Win32SavedGamesDirectoryIsValid_Hook,
         NULL) != MH_OK) {
         SE_LOG("MH_CreateHook failed!\n");
         return;
     }
-    if (MH_CreateHook((void*)0x00500620,
-        &FUN_00500620_Hook,
-        NULL) != MH_OK) {
+
+    if(MH_CreateHook((void*)0x0062B3C5,
+        &Entry_Hook,
+        &fpMain)) {
         SE_LOG("MH_CreateHook failed!\n");
         return;
     }
-    if (MH_CreateHook((void*)0x00560800,
-        &FUN_00560800_Hook,
-        &fpFUN_00560800) != MH_OK) {
+
+    if (MH_CreateHook((void*)0x00440d70,
+        &SaveGame_Hook,
+        &fpSaveGame)) {
         SE_LOG("MH_CreateHook failed!\n");
         return;
     }
-    
+
+    if (MH_CreateHook((void*)0x0046a410,
+        &RestoreGame_Hook,
+        &fpRestoreGame)) {
+        SE_LOG("MH_CreateHook failed!\n");
+        return;
+    }
+
+    //if (MH_CreateHook((void*)0x00509140,
+    //    &get_save_game_filename_hook,
+    //    &fp_get_save_game_filename
+    //)) {
+    //    SE_LOG("MH_CreateHook failed!\n");
+    //    return;
+    //}
+
+    if (MH_CreateHook((void*)0x00441c40,
+        &TryRestoreSave_Hook,
+        &fpTryRestoreSave
+    )) {
+        SE_LOG("MH_CreateHook failed!\n");
+        return;
+    }
+
+    if (MH_CreateHook((void*)0x00441bc0,
+        &TryRestoreSave_NoPath_Hook,
+        &fpTryRestoreSave_NoPath
+    )) {
+        SE_LOG("MH_CreateHook failed!\n");
+        return;
+    }
 
     if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
         SE_LOG("MH_EnableHook failed!\n");
@@ -122,15 +185,9 @@ void InstallHook() {
 
 void RemoveHook()
 {
-    HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
-    if (!hShell32) return;
-
-    LPVOID target = (LPVOID)GetProcAddress(hShell32, "SHGetSpecialFolderPathW");
-    if (target)
-    {
-        MH_DisableHook(target);
-        MH_RemoveHook(target);
-    }
+    //HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
+    //if (!hShell32) return;
+  
     MH_Uninitialize();
 }
 
@@ -141,21 +198,7 @@ BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdwReason, LPVOID lpvReserved) {
     switch (fdwReason)
     {
     case DLL_PROCESS_ATTACH:
-        if(!HasDoneInitialization) {
-            SendacopiaGUIState * state = SendacopiaGUIStateNew();
-            MwBool cont = SendacopiaGUIStateLoop(state);
-            SendacopiaGUIStateFree(state);
-
-            if (cont == MwFALSE) {
-                DisableThreadLibraryCalls(hModule);
-                InstallHook();
-            }
-            else {
-                ExitProcess(0);
-            }
-     
-            HasDoneInitialization = TRUE;
-        }
+        InstallHook();
         break;
     case DLL_PROCESS_DETACH:
         //RemoveHook();
