@@ -18,6 +18,7 @@ void (*fpRestoreGame)(int slot) = NULL;
 //void *(__fastcall *fp_get_save_game_filename)(int slot) = NULL;
 BOOL(__fastcall* fpTryRestoreSave)(void* path, int slot) = NULL;
 BOOL (__fastcall *fpTryRestoreSave_NoPath)(int slot) = NULL;
+const char* (*fpGame_GetSaveSlotDescription)(int slnum) = NULL;
 void (*fpMain)(void);
 
 /*
@@ -100,6 +101,18 @@ void RestoreGame_Hook(int slot) {
     }
 }
 
+// FUN_0043fb20
+const char* Game_GetSaveSlotDescription_Hook(int slot) {
+    SE_LOG("Game_GetSaveSlotDescription (%d)\n", slot);
+    if (slot == SENDACOPIA_DEFAULT_SAVE) {
+        SE_LOG("attempting to override with %d\n", SendacopiaGetChoice());
+        return fpGame_GetSaveSlotDescription(SendacopiaGetChoice());
+    }
+    else {
+        return fpGame_GetSaveSlotDescription(slot);
+    }
+}
+
 void Entry_Hook(void) {
     SE_LOG("Entry_Hook!\n");
     SendacopiaGUIState* state = SendacopiaGUIStateNew();
@@ -133,6 +146,7 @@ void InstallHook() {
         {(void*)0x00441c40, &TryRestoreSave_Hook, &fpTryRestoreSave},
         {(void*)0x00441bc0, &TryRestoreSave_NoPath_Hook, &fpTryRestoreSave_NoPath},
         {(void*)0x00500620, FUN_00500620_Hook, NULL},
+        {(void*)0x0043fb20, Game_GetSaveSlotDescription_Hook, &fpGame_GetSaveSlotDescription}
     };
     for (int i = 0; i < sizeof(funcs) / sizeof(*funcs); i++) {
         SE_LOG("MH_CreateHook for function entry %d...", i);
